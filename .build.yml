@@ -3,9 +3,9 @@ packages:
   - gcc
   - meson
 sources:
-  - https://git.sr.ht/~kennylevinsen/poweralertd
+  - https://git.sr.ht/~kennylevinsen/autologin
 tasks:
   - build: |
-      cd poweralertd
+      cd autologin
       meson build
       ninja -C build

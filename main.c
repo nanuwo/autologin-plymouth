@@ -63,17 +63,14 @@ static void setup_vt(int vt) {
 	close(fd);
 }
 
-static void child_main(struct passwd *pwd, char* user_cmd, char** env) {
+static void child_main(struct passwd *pwd, char **user_cmd, char** env) {
 	check_errno("initgroups", initgroups(pwd->pw_name, pwd->pw_gid));
 	check_errno("setgid", setgid(pwd->pw_gid));
 	check_errno("setuid", setuid(pwd->pw_uid));
 	check_errno("chdir", chdir(pwd->pw_dir));
 	check_errno("prctl", prctl(PR_SET_PDEATHSIG, SIGTERM));
 
-	char arg[1024];
-	snprintf(arg, sizeof arg, "[ -f /etc/profile ] && . /etc/profile; [ -f $HOME/.profile ] && . $HOME/.profile; exec %s", user_cmd);
-	char *const cmd[] = { "/bin/sh", "-c", arg, NULL, };
-	execvpe(cmd[0], cmd, env);
+	execvpe(user_cmd[0], user_cmd, env);
 }
 
 static char *getenv_or(char *key, char *or) {
@@ -85,9 +82,9 @@ int main(int argc, char *argv[]) {
 	struct pam_conv conv = { pam_null_conv, NULL };
 	struct pam_handle* handle = NULL;
 
-	if (argc != 3) {
+	if (argc < 3) {
 		fprintf(stderr, "invalid arguments\n");
-		fprintf(stderr, "usage: %s username command\n", argv[0]);
+		fprintf(stderr, "usage: %s username command...\n", argv[0]);
 		return 1;
 	}
 
@@ -118,7 +115,7 @@ int main(int argc, char *argv[]) {
 
 	pid_t pid = check_errno("fork", fork());
 	if (pid == 0)
-		child_main(pwd, argv[2], env);
+		child_main(pwd, &argv[2], env);
 
 	int res;
 	while ((res = waitpid(pid, NULL, 0)) <= 0) {

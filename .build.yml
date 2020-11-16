@@ -6,6 +6,5 @@ sources:
   - https://git.sr.ht/~kennylevinsen/autologin
 tasks:
   - build: |
-      cd autologin
-      meson build
+      meson build autologin
       ninja -C build

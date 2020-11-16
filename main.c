@@ -16,14 +16,14 @@
 #include <linux/vt.h>
 #include <security/pam_appl.h>
 
-int check_errno(char *operation, int error) {
+static int check_errno(char *operation, int error) {
 	if (error != -1)
 		return error;
 	fprintf(stderr, "%s failed: %s (%d)\n", operation, strerror(errno), errno);
 	exit(EXIT_FAILURE);
 }
 
-int check_pam(struct pam_handle *handle, char *operation, int error) {
+static int check_pam(struct pam_handle *handle, char *operation, int error) {
 	if (error == PAM_SUCCESS)
 		return 0;
 	fprintf(stderr, "%s failed: %s\n", operation, pam_strerror(handle, error));
@@ -32,18 +32,20 @@ int check_pam(struct pam_handle *handle, char *operation, int error) {
 	exit(EXIT_FAILURE);
 }
 
-int pam_null_conv(int num_msg, const struct pam_message** msg, struct pam_response** resp, void* appdata_ptr) {
+static int pam_null_conv(int num_msg, const struct pam_message** msg, struct pam_response** resp, void* appdata_ptr) {
+	(void)msg;
+	(void)appdata_ptr;
 	*resp = calloc(num_msg, sizeof (struct pam_response));
 	return *resp == NULL ? PAM_BUF_ERR : PAM_SUCCESS;
 }
 
-int pam_putenv_tuple(struct pam_handle* handle, char* key, char* value) {
+static int pam_putenv_tuple(struct pam_handle* handle, char* key, char* value) {
 	char buf[256];
 	snprintf(buf, sizeof buf, "%s=%s", key, value);
 	return pam_putenv(handle, buf);
 }
 
-void setup_vt(int vt) {
+static void setup_vt(int vt) {
 	char p[32];
 	snprintf(p, sizeof p, "/dev/tty%d", vt);
 	int fd = check_errno("open tty", open(p, O_RDWR));
@@ -61,7 +63,7 @@ void setup_vt(int vt) {
 	close(fd);
 }
 
-void child_main(struct passwd *pwd, char* user_cmd, char** env) {
+static void child_main(struct passwd *pwd, char* user_cmd, char** env) {
 	check_errno("initgroups", initgroups(pwd->pw_name, pwd->pw_gid));
 	check_errno("setgid", setgid(pwd->pw_gid));
 	check_errno("setuid", setuid(pwd->pw_uid));
@@ -74,9 +76,20 @@ void child_main(struct passwd *pwd, char* user_cmd, char** env) {
 	execvpe(cmd[0], cmd, env);
 }
 
+static char *getenv_or(char *key, char *or) {
+	char *var = getenv(key);
+	return var ? var : or;
+}
+
 int main(int argc, char *argv[]) {
 	struct pam_conv conv = { pam_null_conv, NULL };
-	struct pam_handle* handle;
+	struct pam_handle* handle = NULL;
+
+	if (argc != 3) {
+		fprintf(stderr, "invalid arguments\n");
+		fprintf(stderr, "usage: %s username command\n", argv[0]);
+		return 1;
+	}
 
 	check_pam(handle, "pam_start", pam_start("autologin", argv[1], &conv, &handle));
 	check_pam(handle, "pam_acct_mgmt", pam_acct_mgmt(handle, PAM_SILENT));
@@ -98,7 +111,7 @@ int main(int argc, char *argv[]) {
 	check_pam(handle, "pam_putenv", pam_putenv_tuple(handle, "SHELL", pwd->pw_shell));
 	check_pam(handle, "pam_putenv", pam_putenv_tuple(handle, "USER", pwd->pw_name));
 	check_pam(handle, "pam_putenv", pam_putenv_tuple(handle, "LOGNAME", pwd->pw_name));
-	check_pam(handle, "pam_putenv", pam_putenv_tuple(handle, "TERM", getenv("TERM") ?: "linux"));
+	check_pam(handle, "pam_putenv", pam_putenv_tuple(handle, "TERM", getenv_or("TERM", "linux")));
 
 	check_pam(handle, "pam_open_session", pam_open_session(handle, PAM_SILENT));
 	char** env = pam_getenvlist(handle);

@@ -1,4 +1,7 @@
 # autologin
+Fork of <https://git.sr.ht/~kennylevinsen/autologin>
+
+Credit to <https://gitlab.gnome.org/GNOME/gdm>
 
 It logs you in. Automatically.
 

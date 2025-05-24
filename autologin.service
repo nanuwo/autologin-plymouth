@@ -1,8 +1,17 @@
 [Unit]
 Description=Autologin
-After=systemd-user-sessions.service plymouth-quit-wait.service
+After=rc-local.service plymouth-start.service systemd-user-sessions.service
 After=getty@tty1.service
 Conflicts=getty@tty1.service
+
+# We quit plymouth ourselves
+After=plymouth-quit.service
+Conflicts=plymouth-quit.service
+
+# Since this unit takes responsibility for quitting plymouth,
+# if it fails plymouth must still stop
+OnFailure=plymouth-quit.service
+
 
 [Service]
 Type=simple

@@ -79,6 +79,8 @@ static char *getenv_or(char *key, char *or) {
 }
 
 int main(int argc, char *argv[]) {
+
+	check_errno("plymouth_quit", system("plymouth quit --retain-splash"));
 	struct pam_conv conv = { pam_null_conv, NULL };
 	struct pam_handle* handle = NULL;
 
